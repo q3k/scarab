@@ -1,0 +1,15 @@
+{{ define "main" }}
+{{ range .RenderJobs }}
+<div class="row">
+    <h3>Job</h3>
+    <p>
+    </p>
+</div>
+{{ else }}
+<div class="row">
+    <p>
+        No running jobs.
+    </p>
+</div>
+{{ end }}
+{{ end }}

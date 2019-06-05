@@ -1,0 +1,283 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>{{ block "title" . }}Scarab{{ end }}</title>
+        <style type="text/css">
+            html, body {
+                line-height: 1.6;
+                font-size: 18px;
+                color: #444;
+                background-color: #eee;
+                font-family: helvetica, arial, sans-serif;
+                height: 100%;
+                padding: 0;
+                margin: 0;
+            }
+            h1, h2, h3, h4 {
+                margin: 0;
+            }
+            a {
+                color: #444;
+                font-weight: 600;
+                text-decoration: none;
+            }
+            a:hover {
+                text-decoration: underline;
+            }
+            #modal {
+                display: none;
+                position: fixed;
+                z-index: 1;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+            }
+            #modalContent {
+                background-color: #fff;
+                padding: 20px;
+                border: 1px solid #444;
+            }
+            #wrapper {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                max-width: 1300px;
+                margin: 0 auto;
+                min-height: 100%;
+            }
+            #split {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                flex: 1;
+            }
+            #footer {
+                width: 100%;
+                padding: 10px;
+                font-size: 0.8em;
+                text-align: right;
+            }
+            #footer a {
+                font-weight: 100;
+                text-decoration: underline;
+            }
+            #header {
+                width: 100%;
+                margin: 20px auto;
+                padding: 0 0 0 20px;
+            }
+            #header h1 small {
+                font-weight: 100;
+                font-size: 0.8em;
+            }
+			#sidebar {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                width: 400px;
+                margin: 0 40px 0 0;
+			}
+			#main {
+                display: flex;
+                flex-direction: column;
+                width: 900px;
+			}
+			#main .row {
+                max-width: 1000px;
+                background-color: #f8f8f8;
+                padding: 10px 20px 10px 20px;
+                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+                margin-bottom: 40px;
+			}
+			#sidebar .row {
+                background-color: #f8f8f8;
+                padding: 20px 30px 20px 30px;
+                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+			}
+            #sidebar *> ul {
+                margin: 0;
+                list-style-type: none;
+                padding: 0 0 0 0;
+            }
+            #sidebar *> a.job {
+                font-weight: 100;
+            }
+            #sidebar *> a.selected {
+                font-weight: 600;
+            }
+            span.snippet {
+                font-family: system, courier new, serif;
+            }
+            a.button {
+                display: inline-block;
+                padding: 0.1em 1.2em;
+                border: 0.1em solid #444;
+                margin: 0 0.3em 0.3em 0;
+                border-radius: 0.12em;
+                box-sizing: border-box;
+                text-decoration:none;
+                font-weight: 300;
+                color: #444;
+                text-align:center;
+                transition: all 0.2s;
+                background-color: #b8ffb8;
+            }
+            a.button:hover {
+                color: #000000;
+                background-color: #444;
+            }
+            @media all and (max-width:30em){
+                a.button{
+                    display:block;
+                    margin:0.4em auto;
+                }
+            } 
+            #modalContent h3 {
+                border-bottom: 1px solid #444;
+                margin-bottom: 15px;
+            }
+            .fields input {
+                margin-bottom: 10px;
+            }
+            .fields input:not([type='checkbox']) {
+                display: block;
+                padding: 8px;
+                border: none;
+                border-bottom: 1px solid #ccc;
+                width: 500px;
+            }
+            .fields {
+                margin-bottom: 30px;
+                margin-left: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="wrapper">
+            <div id="header">
+                    <h1><a href="/">Scarab</a> {{ if .RenderSubtitle }}<small> / {{ .RenderSubtitle }}</small>{{ end }}</h1></a>
+            </div>
+            <div id="split">
+            	<div id="sidebar">
+                    <div class="row">
+                            <a href="#" class="button" id="createJob">Create Job</a>
+                            <ul>
+                                    {{ range $key, $value := .Definitions }}
+                                    {{ if eq $.RenderSelectedJobType $key }}
+                                    <li><a href="/job/type/{{ $key }}" class="job,selected">{{ $value.Description }}</a></li>
+                                    {{ else }}
+                                    <li><a href="/job/type/{{ $key }}" class="job">{{ $value.Description }}</a></li>
+                                    {{ end }}
+                                    {{ end }}
+                            </ul>
+                    </div>
+            	</div>
+            	<div id="main">
+                    {{ block "main" . }}
+                    {{ end }}
+            	</div>
+            </div>
+            <div id="footer">
+                    Scarab is <a href="https://github.com/q3k/scarab">open source software</a>.
+            </div>
+        </div>
+        <div id="modal">
+             <div id="modalContent"> </div>
+        </div>
+        <div id="modalContentSelectJobType" style="display: none;">
+            <h3>Select Job type...</h3>
+            <select id="select">
+                {{ range $.Definitions }}
+                <option value="{{ .Name }}">{{ .Description }}</option>
+                {{ end }}
+            </select>
+            <a href="#" class="button" id="jobSelected">Ok</a>
+            <a href="#" class="button" id="modalCancel">Cancel</a>
+        </div>
+        <div id="modalContentCreateJob" style="display: none;">
+            <h3>...</h3>
+            <div class="fields"></div>
+            <a href="#" class="button" id="jobSelected">Create</a>
+            <a href="#" class="button" id="modalCancel">Cancel</a>
+        </div>
+        <script>
+let modal = document.querySelector("#modal");
+modal.onclick = () => {
+    modal.style.display = "none";
+};
+let modalContent = document.querySelector("#modalContent");
+modal.onclick = () => {
+    event.stopPropagation();
+};
+
+function openModal(name) {
+    modalContent.innerHTML = document.querySelector(name).innerHTML;
+    document.querySelector("a#modalCancel").onclick = () => {
+        modal.style.display = "none";
+        
+    };
+    modal.style.display = "flex";
+}
+
+let TYPE_ONE_LINE_STRING = 1;
+let TYPE_BOOL = 2;
+
+let VALIDATOR_MUST_BE_SET = 1;
+
+document.querySelector("a#createJob").onclick = () => {
+    openModal("#modalContentSelectJobType");
+    document.querySelector("a#jobSelected").onclick = () => {
+        let t = document.querySelector("#select").value;
+        fetch('/json/job/definition/' + t).then((response) => {
+            response.json().then((j) => {
+                let fields = document.querySelector("#modalContentCreateJob .fields");
+                fields.innerHTML = "";
+                for (let descriptor of j.ArgsDescriptor) {
+                    let label = document.createElement("label");
+                    let input = document.createElement("input");
+
+                    if (descriptor.type == TYPE_BOOL) {
+                        input.type = "checkbox";
+                    }
+
+                    label.innerText = descriptor.description + ":";
+
+                    for (let validator of descriptor.validator) {
+                        if (validator == VALIDATOR_MUST_BE_SET && descriptor.type != TYPE_BOOL) {
+                            label.innerHTML += " <span style='color: red;'>*</span>";
+                        }
+                    }
+
+                    label.htmlFor = input;
+                    input.name = descriptor.name;
+                    fields.appendChild(label);
+                    fields.appendChild(input);
+                }
+                document.querySelector("#modalContentCreateJob h3").innerText = j.Description;
+                openModal("#modalContentCreateJob");
+            });
+        });
+    };
+};
+
+document.onkeydown = function(evt) {
+    evt = evt || window.event;
+    var isEscape = false;
+    if ("key" in evt) {
+        isEscape = (evt.key === "Escape" || evt.key === "Esc");
+    } else {
+        isEscape = (evt.keyCode === 27);
+    }
+    if (isEscape) {
+        modal.style.display = "none";
+    }
+};
+        </script>
+    </body>
+</html>

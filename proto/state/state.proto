@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package scarab.state;
+option go_package = "github.com/q3k/scarab/proto/state";
+
+message ArgumentDefinition {
+        string name = 1;
+        string description = 2;
+        enum Type {
+                TYPE_INVALID = 0;
+                TYPE_ONE_LINE_STRING = 1;
+                TYPE_BOOL = 2;
+        }
+        Type type = 3;
+        enum Validator {
+                VALIDATOR_INVALID = 0;
+                VALIDATOR_MUST_BE_SET = 1;
+        }
+        repeated Validator validator = 4;
+}
