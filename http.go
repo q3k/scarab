@@ -4,48 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strings"
+	"text/template"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-
-	spb "github.com/q3k/scarab/proto/state"
 	"github.com/q3k/scarab/templates"
 )
-
-type JobDefinition struct {
-	Name        string
-	Description string
-
-	ArgsDescriptor []*spb.ArgumentDefinition
-
-	Steps []StepDefinition
-}
-
-type StepDefinition struct {
-	Name        string
-	Description string
-	DependsStep string
-}
-
-type RunningJob struct {
-	definition *JobDefinition
-
-	Args  proto.Message
-	State proto.Message
-}
-
-type RunningStep struct {
-	definition *StepDefinition
-	job        *RunningJob
-}
-
-type Service struct {
-	Definitions map[string]*JobDefinition
-	Jobs        []*RunningJob
-}
 
 func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 	mux := http.NewServeMux()
@@ -78,7 +43,6 @@ func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 	}
 	return ctx.Err()
 }
-
 func loadTemplate(names ...string) *template.Template {
 	var t *template.Template
 	for _, n := range names {
@@ -109,10 +73,6 @@ func renderTemplate(w http.ResponseWriter, t *template.Template, data interface{
 
 	glog.Errorf("Error executing template %q: %v", t.Name(), err)
 }
-
-var (
-//templateRoot = loadTemplate("root.html", "base.html")
-)
 
 func (s *Service) httpRoot(w http.ResponseWriter, r *http.Request) {
 	templateRoot := loadTemplate("root.html", "base.html")
