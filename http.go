@@ -74,6 +74,21 @@ func renderTemplate(w http.ResponseWriter, t *template.Template, data interface{
 	glog.Errorf("Error executing template %q: %v", t.Name(), err)
 }
 
+func getArg(r *http.Request, root ...string) string {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) != len(root)+1 {
+		return ""
+	}
+
+	for i, v := range root {
+		if v != parts[i] {
+			return ""
+		}
+	}
+
+	return parts[len(root)]
+}
+
 func (s *Service) httpRoot(w http.ResponseWriter, r *http.Request) {
 	templateRoot := loadTemplate("root.html", "base.html")
 	data := struct {
@@ -92,13 +107,12 @@ type renderData struct {
 }
 
 func (s *Service) httpJobType(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 3 || parts[0] != "job" || parts[1] != "type" {
+	t := getArg(r, "job", "type")
+	if t == "" {
 		http.NotFound(w, r)
 		return
 	}
-
-	def, ok := s.Definitions[parts[2]]
+	def, ok := s.Definitions[t]
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -114,12 +128,12 @@ func (s *Service) httpJobType(w http.ResponseWriter, r *http.Request) {
 			Service:        s,
 			RenderSubtitle: def.Description,
 		},
-		RenderSelectedJobType: parts[2],
+		RenderSelectedJobType: t,
 		RenderJobs:            []*RunningJob{},
 	}
 
 	for _, rj := range s.Jobs {
-		if rj.definition.Name != parts[2] {
+		if rj.definition.Name != t {
 			continue
 		}
 		data.RenderJobs = append(data.RenderJobs, rj)
@@ -129,13 +143,13 @@ func (s *Service) httpJobType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) httpJsonJobDefinition(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 4 || parts[0] != "json" || parts[1] != "job" || parts[2] != "definition" {
+	t := getArg(r, "json", "job", "definition")
+	if t == "" {
 		http.NotFound(w, r)
 		return
 	}
 
-	def, ok := s.Definitions[parts[3]]
+	def, ok := s.Definitions[t]
 	if !ok {
 		http.NotFound(w, r)
 		return
