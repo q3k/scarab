@@ -229,64 +229,89 @@
             <a href="#" class="button" id="modalCancel">Cancel</a>
         </div>
         <script>
-let modal = document.querySelector("#modal");
-modal.onclick = () => {
-    modal.style.display = "none";
-};
-let modalContent = document.querySelector("#modalContent");
-modal.onclick = () => {
-    event.stopPropagation();
-};
 
-function openModal(name) {
-    modalContent.innerHTML = document.querySelector(name).innerHTML;
-    document.querySelector("a#modalCancel").onclick = () => {
-        modal.style.display = "none";
-        
-    };
-    modal.style.display = "flex";
-}
+const AppState = Object.freeze({
+        IDLE: Symbol("IDLE"),
+        CREATE_JOB_SELECT_TYPE: Symbol("CREATE_JOB_SELECT_TYPE"),
+        CREATE_JOB_INPUT_PARAMETERS: Symbol("CREATE_JOB_INPUT_PARAMETERS"),
+});
 
 let TYPE_ONE_LINE_STRING = 1;
 let TYPE_BOOL = 2;
 
 let VALIDATOR_MUST_BE_SET = 1;
 
-document.querySelector("a#createJob").onclick = () => {
-    openModal("#modalContentSelectJobType");
-    document.querySelector("a#jobSelected").onclick = () => {
-        let t = document.querySelector("#select").value;
-        fetch('/json/job/definition/' + t).then((response) => {
-            response.json().then((j) => {
-                let fields = document.querySelector("#modalContentCreateJob .fields");
-                fields.innerHTML = "";
-                for (let descriptor of j.ArgsDescriptor) {
-                    let label = document.createElement("label");
-                    let input = document.createElement("input");
-
-                    if (descriptor.type == TYPE_BOOL) {
-                        input.type = "checkbox";
-                    }
-
-                    label.innerText = descriptor.description + ":";
-
-                    for (let validator of descriptor.validator) {
-                        if (validator == VALIDATOR_MUST_BE_SET && descriptor.type != TYPE_BOOL) {
-                            label.innerHTML += " <span style='color: red;'>*</span>";
-                        }
-                    }
-
-                    label.htmlFor = input;
-                    input.name = descriptor.name;
-                    fields.appendChild(label);
-                    fields.appendChild(input);
-                }
-                document.querySelector("#modalContentCreateJob h3").innerText = j.Description;
-                openModal("#modalContentCreateJob");
-            });
-        });
-    };
+let App = function() {
+        this.modal = document.querySelector("#modal");
+        this.modalContent = document.querySelector("#modalContent");
+        this.state = undefined;
 };
+
+App.prototype.openModal = function(name) {
+        let target = document.querySelector(name);
+        this.modalContent.innerHTML = target.innerHTML;
+        document.querySelector("a#modalCancel").onclick = () => {
+                this.idle();
+        };
+        this.modal.style.display = "flex";
+};
+
+App.prototype.idle = function() {
+        this.state = AppState.IDLE;
+        this.modalContent.innerHTML = "";
+        this.modal.style.display = "none";
+        
+        document.querySelector("a#createJob").onclick = () => {
+                this.jobSelect();
+        };
+};
+
+App.prototype.jobSelect = function() {
+        this.state = AppState.CREATE_JOB_SELECT_TYPE;
+        this.openModal("#modalContentSelectJobType");
+        document.querySelector("a#jobSelected").onclick = () => {
+                let t = document.querySelector("#select").value;
+                fetch('/json/job/definition/' + t).then((response) => {
+                        response.json().then((j) => {
+                                this.jobInputParameters(j);
+                        });
+                });
+        };
+};
+
+App.prototype.jobInputParameters = function(j) {
+        this.state = AppState.CREATE_JOB_INPUT_PARAMETERS;
+
+        let fields = document.querySelector("#modalContentCreateJob .fields");
+        fields.innerHTML = "";
+        for (let descriptor of j.ArgsDescriptor) {
+            let label = document.createElement("label");
+            let input = document.createElement("input");
+
+            if (descriptor.type == TYPE_BOOL) {
+                input.type = "checkbox";
+            }
+
+            label.innerText = descriptor.description + ":";
+
+            for (let validator of descriptor.validator) {
+                if (validator == VALIDATOR_MUST_BE_SET && descriptor.type != TYPE_BOOL) {
+                    label.innerHTML += " <span style='color: red;'>*</span>";
+                }
+            }
+
+            label.htmlFor = input;
+            input.name = descriptor.name;
+            fields.appendChild(label);
+            fields.appendChild(input);
+        }
+        document.querySelector("#modalContentCreateJob h3").innerText = j.Description;
+
+        this.openModal("#modalContentCreateJob");
+};
+
+let app = new App();
+app.idle();
 
 document.onkeydown = function(evt) {
     evt = evt || window.event;
@@ -297,9 +322,10 @@ document.onkeydown = function(evt) {
         isEscape = (evt.keyCode === 27);
     }
     if (isEscape) {
-        modal.style.display = "none";
+            app.idle();
     }
 };
+
         </script>
     </body>
 </html>
