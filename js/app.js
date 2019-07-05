@@ -3,8 +3,8 @@ import Vue from 'vue/dist/vue.esm.browser.js';
 import common_pb from 'proto/common/common_js_proto/proto/common/common_pb.js';
 import common_grpc from 'proto/common/common_js_proto/proto/common/common_grpc_web_pb.js';
 
-let Remote = function() {
-    let url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+const Remote = function() {
+    const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
     console.log("Remote URL: " + url);
     this.manage = new common_grpc.ManageClient(url);
 }
@@ -29,7 +29,7 @@ const State = Object.freeze({
         CREATE_JOB_START: Symbol("CREATE_JOB_START"),
 });
 
-let store = {
+const store = {
     state: {
         state: State.IDLE,
 
@@ -43,9 +43,9 @@ let store = {
         this.state.state = State.IDLE;
     },
     jobSelect: async function() {
-        let descriptions = await this.remote.descriptions();
-        let jobs = descriptions.getJobsList();
-        for (let job of jobs) {
+        const descriptions = await this.remote.descriptions();
+        const jobs = descriptions.getJobsList();
+        for (const job of jobs) {
             this.state.jobTypes[job.getName()] = job;
         }
         this.state.state = State.CREATE_JOB_SELECT_TYPE;
@@ -99,21 +99,21 @@ Vue.component('modal-job-input-parameters', {
         fields: {},
     }; },
     props: {
-        "jobTypes": {type: Object, default: {}},
-        "jobName": {type: String, default: ""},
+        "job": {type: common_pb.JobDefinition},
+        "fieldErrors": {type: Object, default: () => { return {}; }},
     },
     methods: {
         getArguments: function() {
             let res = [];
             
-            for (let argument of this.jobTypes[this.jobName].getArgumentsList()) {
+            for (const argument of this.job.getArgumentsList()) {
                 let arg = {
                     name: argument.getName(),
                     description: argument.getDescription(),
                     checkbox: argument.getType() === common_pb.ArgumentDefinition.Type.TYPE_BOOL,
                     mustBeSet: false,
                 };
-                for (let validator of argument.getValidatorList()) {
+                for (const validator of argument.getValidatorList()) {
                     if (validator == common_pb.ArgumentDefinition.Validator.VALIDATOR_MUST_BE_SET) {
                         arg.mustBeSet = true;
                     }
@@ -127,7 +127,7 @@ Vue.component('modal-job-input-parameters', {
     template: `
     <div id="modal">
         <div id="modalContent">
-            <h3>{{ jobTypes[jobName].getDescription() }} ...</h3>
+            <h3>{{ job.getDescription() }} ...</h3>
             <div class="fields">
                 <template v-for="argument in getArguments()">
                     <label :for=argument.name>
@@ -153,7 +153,7 @@ Vue.component('modal-job-input-parameters', {
     `,
 });
 
-let vm = new Vue({
+const vm = new Vue({
     el: '#app',
     data: {
         state: store.state,
@@ -166,10 +166,10 @@ let vm = new Vue({
     },
     computed: {
         showCreateJobSelectType: function() {
-            return this.state.state == State.CREATE_JOB_SELECT_TYPE;
+            return this.state.state === State.CREATE_JOB_SELECT_TYPE;
         },
         showCreateJobInputParameters: function() {
-            return this.state.state == State.CREATE_JOB_INPUT_PARAMETERS;
+            return this.state.state === State.CREATE_JOB_INPUT_PARAMETERS;
         },
     },
 });

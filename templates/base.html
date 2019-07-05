@@ -210,10 +210,18 @@
                         Scarab is <a href="https://github.com/q3k/scarab">open source software</a>.
                 </div>
             </div>
-            <modal-job-create v-if="showCreateJobSelectType" v-bind:job-types="state.jobTypes" v-on:close="idle" v-on:ok="jobInputParameters">
-            </modal-job-create>
-            <modal-job-input-parameters v-if="showCreateJobInputParameters" v-bind:job-types="state.jobTypes" v-bind:job-name="state.creatingJobName" v-on:close="idle" v-on:ok="jobStart">
-            </modal-job-input-parameters>
+            <modal-job-create
+                v-if="showCreateJobSelectType"
+                v-on:close="idle"
+                v-on:ok="jobInputParameters"
+                :job-types="state.jobTypes"
+            ></modal-job-create>
+            <modal-job-input-parameters
+                v-if="showCreateJobInputParameters"
+                v-on:close="idle"
+                v-on:ok="jobStart"
+                :job="state.jobTypes[state.creatingJobName]"
+            ></modal-job-input-parameters>
         </div>
         <div id="modalContentSelectJobType" style="display: none;">
             <h3>Select Job type...</h3>
