@@ -26,7 +26,7 @@
                 text-decoration: underline;
             }
             #modal {
-                display: none;
+                display: flex;
                 position: fixed;
                 z-index: 1;
                 left: 0;
@@ -181,36 +181,37 @@
         </style>
     </head>
     <body>
-        <div id="wrapper">
-            <div id="header">
-                    <h1><a href="/">Scarab</a> {{ if .RenderSubtitle }}<small> / {{ .RenderSubtitle }}</small>{{ end }}</h1></a>
+        <div id="app">
+            <div id="wrapper">
+                <div id="header">
+                        <h1><a href="/">Scarab</a> {{ if .RenderSubtitle }}<small> / {{ .RenderSubtitle }}</small>{{ end }}</h1></a>
+                </div>
+                <div id="split">
+                	<div id="sidebar">
+                        <div class="row">
+                                <vbutton red v-on:click="jobSelect">Create Job</vbutton>
+                                <ul>
+                                        {{ range $key, $value := .Definitions }}
+                                        {{ if eq $.RenderSelectedJobType $key }}
+                                        <li><a href="/job/type/{{ $key }}" class="job,selected">{{ $value.Description }}</a></li>
+                                        {{ else }}
+                                        <li><a href="/job/type/{{ $key }}" class="job">{{ $value.Description }}</a></li>
+                                        {{ end }}
+                                        {{ end }}
+                                </ul>
+                        </div>
+                	</div>
+                	<div id="main">
+                        {{ block "main" . }}
+                        {{ end }}
+                	</div>
+                </div>
+                <div id="footer">
+                        Scarab is <a href="https://github.com/q3k/scarab">open source software</a>.
+                </div>
             </div>
-            <div id="split">
-            	<div id="sidebar">
-                    <div class="row">
-                            <a href="#" class="button red" id="createJob" style="margin-bottom: 10px;">Create Job</a>
-                            <ul>
-                                    {{ range $key, $value := .Definitions }}
-                                    {{ if eq $.RenderSelectedJobType $key }}
-                                    <li><a href="/job/type/{{ $key }}" class="job,selected">{{ $value.Description }}</a></li>
-                                    {{ else }}
-                                    <li><a href="/job/type/{{ $key }}" class="job">{{ $value.Description }}</a></li>
-                                    {{ end }}
-                                    {{ end }}
-                            </ul>
-                    </div>
-            	</div>
-            	<div id="main">
-                    {{ block "main" . }}
-                    {{ end }}
-            	</div>
-            </div>
-            <div id="footer">
-                    Scarab is <a href="https://github.com/q3k/scarab">open source software</a>.
-            </div>
-        </div>
-        <div id="modal">
-             <div id="modalContent"> </div>
+            <modal-job-create v-if="showCreateJobSelectType" v-bind:job-types="state.jobTypes" v-on:close="idle">
+            </modal-job-crate>
         </div>
         <div id="modalContentSelectJobType" style="display: none;">
             <h3>Select Job type...</h3>
@@ -219,113 +220,16 @@
                 <option value="{{ .Name }}">{{ .Description }}</option>
                 {{ end }}
             </select>
-            <a href="#" class="button red" id="jobSelected" style="margin-right: 0;">Ok</a>
+            <a href="#" class="button red" id="ok" style="margin-right: 0;">Ok</a>
             <a href="#" class="button" id="modalCancel">Cancel</a>
         </div>
         <div id="modalContentCreateJob" style="display: none;">
             <h3>...</h3>
             <div class="fields"></div>
-            <a href="#" class="button red" id="jobSelected" style="margin-right: 0;">Create</a>
+            <a href="#" class="button red" id="ok" style="margin-right: 0;">Create</a>
             <a href="#" class="button" id="modalCancel">Cancel</a>
         </div>
-        <script>
 
-const AppState = Object.freeze({
-        IDLE: Symbol("IDLE"),
-        CREATE_JOB_SELECT_TYPE: Symbol("CREATE_JOB_SELECT_TYPE"),
-        CREATE_JOB_INPUT_PARAMETERS: Symbol("CREATE_JOB_INPUT_PARAMETERS"),
-});
-
-let TYPE_ONE_LINE_STRING = 1;
-let TYPE_BOOL = 2;
-
-let VALIDATOR_MUST_BE_SET = 1;
-
-let App = function() {
-        this.modal = document.querySelector("#modal");
-        this.modalContent = document.querySelector("#modalContent");
-        this.state = undefined;
-};
-
-App.prototype.openModal = function(name) {
-        let target = document.querySelector(name);
-        this.modalContent.innerHTML = target.innerHTML;
-        document.querySelector("a#modalCancel").onclick = () => {
-                this.idle();
-        };
-        this.modal.style.display = "flex";
-};
-
-App.prototype.idle = function() {
-        this.state = AppState.IDLE;
-        this.modalContent.innerHTML = "";
-        this.modal.style.display = "none";
-        
-        document.querySelector("a#createJob").onclick = () => {
-                this.jobSelect();
-        };
-};
-
-App.prototype.jobSelect = function() {
-        this.state = AppState.CREATE_JOB_SELECT_TYPE;
-        this.openModal("#modalContentSelectJobType");
-        document.querySelector("a#jobSelected").onclick = () => {
-                let t = document.querySelector("#select").value;
-                fetch('/json/job/definition/' + t).then((response) => {
-                        response.json().then((j) => {
-                                this.jobInputParameters(j);
-                        });
-                });
-        };
-};
-
-App.prototype.jobInputParameters = function(j) {
-        this.state = AppState.CREATE_JOB_INPUT_PARAMETERS;
-
-        let fields = document.querySelector("#modalContentCreateJob .fields");
-        fields.innerHTML = "";
-        for (let descriptor of j.ArgsDescriptor) {
-            let label = document.createElement("label");
-            let input = document.createElement("input");
-
-            if (descriptor.type == TYPE_BOOL) {
-                input.type = "checkbox";
-            }
-
-            label.innerText = descriptor.description + ":";
-
-            for (let validator of descriptor.validator) {
-                if (validator == VALIDATOR_MUST_BE_SET && descriptor.type != TYPE_BOOL) {
-                    label.innerHTML += " <span style='color: red;'>*</span>";
-                }
-            }
-
-            label.htmlFor = input;
-            input.name = descriptor.name;
-            fields.appendChild(label);
-            fields.appendChild(input);
-        }
-        document.querySelector("#modalContentCreateJob h3").innerText = j.Description;
-
-        this.openModal("#modalContentCreateJob");
-};
-
-let app = new App();
-app.idle();
-
-document.onkeydown = function(evt) {
-    evt = evt || window.event;
-    var isEscape = false;
-    if ("key" in evt) {
-        isEscape = (evt.key === "Escape" || evt.key === "Esc");
-    } else {
-        isEscape = (evt.keyCode === 27);
-    }
-    if (isEscape) {
-            app.idle();
-    }
-};
-
-        </script>
+        <script src="js/bundle.min.js"></script>
     </body>
 </html>

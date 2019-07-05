@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package scarab.common;
+option go_package = "github.com/q3k/scarab/proto/common";
+
+message JobDefinition {
+        // Unique identifier for a job definition in this instance (eg. "rollout-prod").
+        string name = 1;
+        // Short human description (eg. "Rollout to Prod").
+        string description = 2;
+
+        repeated StepDefinition steps = 3;
+        repeated ArgumentDefinition arguments = 4;
+
+        enum RestartPolicy {
+                // Do not  restart all process steps when Scarab restarts
+                RESTART_POLICY_PERSIST = 0;
+                // Restart all process steps when Scarab restarts
+                RESTART_POLICY_RESTART = 1;
+        };
+        RestartPolicy restart_policy = 5;
+}
+
+message StepDefinition {
+        // Unique identifier for a step definition in parent job (eg. "run-qa-tests").
+        string name = 1;
+        // Short human description (eg. "Run QA tests").
+        string description = 2;
+
+        oneof runner {
+                // To run, execute shell script.
+                bytes shell_script = 3;
+        }
+}
+
+message ArgumentDefinition {
+        string name = 1;
+        string description = 2;
+        enum Type {
+                TYPE_INVALID = 0;
+                TYPE_ONE_LINE_STRING = 1;
+                TYPE_BOOL = 2;
+        }
+        Type type = 3;
+        enum Validator {
+                VALIDATOR_INVALID = 0;
+                VALIDATOR_MUST_BE_SET = 1;
+        }
+        repeated Validator validator = 4;
+}
+
+message DefinitionsRequest {
+}
+
+message DefinitionsResponse {
+        repeated JobDefinition jobs = 1;
+}
+
+service Manage {
+        rpc Definitions(DefinitionsRequest) returns (DefinitionsResponse);
+}

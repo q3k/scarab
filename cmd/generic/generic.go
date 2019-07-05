@@ -14,8 +14,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/q3k/scarab"
+	cpb "github.com/q3k/scarab/proto/common"
 	gpb "github.com/q3k/scarab/proto/generic"
-	spb "github.com/q3k/scarab/proto/state"
 )
 
 type flags struct {
@@ -27,16 +27,16 @@ func init() {
 	flag.Set("logtostderr", "true")
 }
 
-func ValidateProtoJob(jd *gpb.Job) error {
+func ValidateProtoJob(jd *cpb.JobDefinition) error {
 	if jd.Name == "" {
 		return fmt.Errorf("name must be set")
 	}
-	for i, arg := range jd.Argument {
+	for i, arg := range jd.Arguments {
 		if err := ValidateProtoArgument(arg); err != nil {
 			return fmt.Errorf("argument %d: %v", i, err)
 		}
 	}
-	for i, step := range jd.Step {
+	for i, step := range jd.Steps {
 		if err := ValidateProtoStep(step); err != nil {
 			return fmt.Errorf("step %d: %v", i, err)
 		}
@@ -44,12 +44,12 @@ func ValidateProtoJob(jd *gpb.Job) error {
 	return nil
 }
 
-func ValidateProtoArgument(a *spb.ArgumentDefinition) error {
+func ValidateProtoArgument(a *cpb.ArgumentDefinition) error {
 	// TODO(q3k): Implement
 	return nil
 }
 
-func ValidateProtoStep(sd *gpb.Step) error {
+func ValidateProtoStep(sd *cpb.StepDefinition) error {
 	if sd.Name == "" {
 		return fmt.Errorf("name must be set")
 	}
@@ -83,26 +83,25 @@ func main() {
 		}
 	}
 
-	// Create scarab structures.
-	// TODO(q3k): Restore state.
-
-	s := &scarab.Service{
-		Definitions: make(map[string]*scarab.JobDefinition),
-		Jobs:        []*scarab.RunningJob{},
-	}
+	definitions := make([]*scarab.JobDefinition, len(config.Job))
 	for i, job := range config.Job {
 		if err := ValidateProtoJob(job); err != nil {
 			glog.Exitf("Configuration validation failed: job %d: %v", i, err)
 		}
 
-		jd := &scarab.JobDefinition{
+		definitions[i] = &scarab.JobDefinition{
 			Name:           job.Name,
 			Description:    job.Description,
-			ArgsDescriptor: job.Argument,
+			ArgsDescriptor: job.Arguments,
 		}
-
-		s.Definitions[jd.Name] = jd
 	}
+
+	storage, err := scarab.NewLevelDBStorage("scarab.db")
+	if err != nil {
+		glog.Exitf("Storage failed: %v", err)
+	}
+
+	s := scarab.NewService(definitions, storage)
 
 	glog.Infof("Service loaded!")
 

@@ -6,30 +6,8 @@ syntax = "proto3";
 package scarab.generic;
 option go_package = "github.com/q3k/scarab/proto/generic";
 
-import "proto/state/state.proto";
-
-message Job {
-        // Unique identifier for a job definition in this instance (eg. "rollout-prod").
-        string name = 1;
-        // Short human description (eg. "Rollout to Prod").
-        string description = 2;
-
-        repeated Step step = 3;
-        repeated state.ArgumentDefinition argument = 4;
-}
-
-message Step {
-        // Unique identifier for a step definition in parent job (eg. "run-qa-tests").
-        string name = 1;
-        // Short human description (eg. "Run QA tests").
-        string description = 2;
-
-        oneof runner {
-                // To run, execute shell script.
-                bytes shell_script = 3;
-        }
-}
+import "proto/common/common.proto";
 
 message Configuration {
-        repeated Job job = 1;
+        repeated common.JobDefinition job = 1;
 }

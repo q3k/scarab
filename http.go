@@ -2,25 +2,75 @@ package scarab
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"text/template"
 
 	"github.com/golang/glog"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	"google.golang.org/grpc"
+
+	"github.com/q3k/scarab/js"
+	cpb "github.com/q3k/scarab/proto/common"
 	"github.com/q3k/scarab/templates"
 )
+
+type grpcManage struct {
+	s *Service
+}
+
+func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsRequest) (*cpb.DefinitionsResponse, error) {
+	res := &cpb.DefinitionsResponse{
+		Jobs: make([]*cpb.JobDefinition, len(s.s.Definitions)),
+	}
+	i := 0
+	for _, job := range s.s.Definitions {
+		res.Jobs[i] = &cpb.JobDefinition{
+			Name:        job.Name,
+			Description: job.Description,
+			Arguments:   job.ArgsDescriptor,
+			Steps:       make([]*cpb.StepDefinition, len(job.Steps)),
+		}
+		for j, step := range job.Steps {
+			res.Jobs[i].Steps[j] = &cpb.StepDefinition{
+				Name:        step.Name,
+				Description: step.Description,
+			}
+		}
+		i += 1
+	}
+	return res, nil
+}
 
 func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.httpRoot)
-	mux.HandleFunc("/job/type/", s.httpJobType)
-	mux.HandleFunc("/json/job/definition/", s.httpJsonJobDefinition)
+	mux.HandleFunc("/js/", func(w http.ResponseWriter, r *http.Request) {
+		ruri := strings.TrimPrefix(r.RequestURI, "/js/")
+		data, ok := js.Data[ruri]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/javascript")
+		w.Write(data)
+	})
+
+	grpcServer := grpc.NewServer()
+	manage := &grpcManage{s}
+	cpb.RegisterManageServer(grpcServer, manage)
+	wrappedGrpc := grpcweb.WrapServer(grpcServer)
 
 	srv := http.Server{
-		Addr:    bind,
-		Handler: mux,
+		Addr: bind,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if wrappedGrpc.IsGrpcWebRequest(r) {
+				wrappedGrpc.ServeHTTP(w, r)
+				return
+			}
+			mux.ServeHTTP(w, r)
+		}),
 	}
 
 	lisErr := make(chan error)
@@ -46,8 +96,8 @@ func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 func loadTemplate(names ...string) *template.Template {
 	var t *template.Template
 	for _, n := range names {
-		asset, err := templates.Asset(n)
-		if err != nil {
+		asset, ok := templates.Data["templates/"+n]
+		if !ok {
 			panic(fmt.Sprintf("unknown template %q", n))
 		}
 
@@ -57,7 +107,7 @@ func loadTemplate(names ...string) *template.Template {
 			t = t.New(n)
 		}
 
-		_, err = t.Parse(string(asset))
+		_, err := t.Parse(string(asset))
 		if err != nil {
 			panic(fmt.Sprintf("template %q parse failed: %v", n, err))
 		}
@@ -104,56 +154,4 @@ func (s *Service) httpRoot(w http.ResponseWriter, r *http.Request) {
 type renderData struct {
 	*Service
 	RenderSubtitle string
-}
-
-func (s *Service) httpJobType(w http.ResponseWriter, r *http.Request) {
-	t := getArg(r, "job", "type")
-	if t == "" {
-		http.NotFound(w, r)
-		return
-	}
-	def, ok := s.Definitions[t]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
-	templateJob := loadTemplate("job.html", "base.html")
-	data := struct {
-		renderData
-		RenderSelectedJobType string
-		RenderJobs            []*RunningJob
-	}{
-		renderData: renderData{
-			Service:        s,
-			RenderSubtitle: def.Description,
-		},
-		RenderSelectedJobType: t,
-		RenderJobs:            []*RunningJob{},
-	}
-
-	for _, rj := range s.Jobs {
-		if rj.definition.Name != t {
-			continue
-		}
-		data.RenderJobs = append(data.RenderJobs, rj)
-	}
-
-	renderTemplate(w, templateJob, data)
-}
-
-func (s *Service) httpJsonJobDefinition(w http.ResponseWriter, r *http.Request) {
-	t := getArg(r, "json", "job", "definition")
-	if t == "" {
-		http.NotFound(w, r)
-		return
-	}
-
-	def, ok := s.Definitions[t]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-
-	json.NewEncoder(w).Encode(def)
 }

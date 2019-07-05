@@ -1,3 +1,6 @@
 *swp
 /generic
+/scarab.db
+/configuration.proto.text
 *pb.go
+bazel-*
