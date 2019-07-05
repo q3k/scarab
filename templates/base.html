@@ -76,31 +76,31 @@
                 font-weight: 100;
                 font-size: 0.8em;
             }
-			#sidebar {
+            #sidebar {
                 display: flex;
                 flex-direction: column;
                 justify-content: flex-start;
                 width: 400px;
                 margin: 0 40px 0 0;
                 font-size: 0.8em;
-			}
-			#main {
+            }
+            #main {
                 display: flex;
                 flex-direction: column;
                 width: 900px;
-			}
-			#main .row {
+            }
+            #main .row {
                 max-width: 1000px;
                 background-color: #f8f8f8;
                 padding: 10px 20px 10px 20px;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
                 margin-bottom: 40px;
-			}
-			#sidebar .row {
+            }
+            #sidebar .row {
                 background-color: #f8f8f8;
                 padding: 20px 30px 20px 30px;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-			}
+            }
             #sidebar *> ul {
                 margin: 0;
                 list-style-type: none;
@@ -132,7 +132,7 @@
                 background-image: -webkit-linear-gradient(top,#f5f5f5,#f1f1f1);
                 background-image: -moz-linear-gradient(top,#f5f5f5,#f1f1f1);
                 background-image: linear-gradient(top,#f5f5f5,#f1f1f1);
-	            color: #666;	
+                color: #666;
                 border: 1px solid rgba(0,0,0,0.1);
                 display: inline-block;
                 text-decoration: none;
@@ -187,7 +187,7 @@
                         <h1><a href="/">Scarab</a> {{ if .RenderSubtitle }}<small> / {{ .RenderSubtitle }}</small>{{ end }}</h1></a>
                 </div>
                 <div id="split">
-                	<div id="sidebar">
+                    <div id="sidebar">
                         <div class="row">
                                 <vbutton red v-on:click="jobSelect">Create Job</vbutton>
                                 <ul>
@@ -200,18 +200,20 @@
                                         {{ end }}
                                 </ul>
                         </div>
-                	</div>
-                	<div id="main">
+                    </div>
+                    <div id="main">
                         {{ block "main" . }}
                         {{ end }}
-                	</div>
+                    </div>
                 </div>
                 <div id="footer">
                         Scarab is <a href="https://github.com/q3k/scarab">open source software</a>.
                 </div>
             </div>
-            <modal-job-create v-if="showCreateJobSelectType" v-bind:job-types="state.jobTypes" v-on:close="idle">
-            </modal-job-crate>
+            <modal-job-create v-if="showCreateJobSelectType" v-bind:job-types="state.jobTypes" v-on:close="idle" v-on:ok="jobInputParameters">
+            </modal-job-create>
+            <modal-job-input-parameters v-if="showCreateJobInputParameters" v-bind:job-types="state.jobTypes" v-bind:job-name="state.creatingJobName" v-on:close="idle" v-on:ok="jobStart">
+            </modal-job-input-parameters>
         </div>
         <div id="modalContentSelectJobType" style="display: none;">
             <h3>Select Job type...</h3>
