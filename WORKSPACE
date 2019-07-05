@@ -9,9 +9,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "cf469cf668d6623a3cd893c2cc19e1beef3d2e4c2259eb5fb3aaa9beed5086a5",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/archive/b84151922bb9659ff3675bc568cb9e3771459d7d.zip"],
-    strip_prefix = "rules_nodejs-b84151922bb9659ff3675bc568cb9e3771459d7d",
+    sha256 = "58ccb7a1a1cf9c6f4e36f79e7839f226eba4a53c7537782a86a94e1ca05ad269",
+    urls = ["https://github.com/q3k/rules_nodejs/archive/ed9bda56fd661e7dfe1e5513d1232babb5c72ac5.zip"],
+    strip_prefix = "rules_nodejs-ed9bda56fd661e7dfe1e5513d1232babb5c72ac5",
 )
 
 load("@build_bazel_rules_nodejs//:defs.bzl", "node_repositories", "yarn_install")

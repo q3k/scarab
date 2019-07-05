@@ -178,6 +178,18 @@
                 margin-bottom: 30px;
                 margin-left: 10px;
             }
+            .fields .error {
+                color: red;
+                padding: 0 0 30px 0;
+                font-style: italic;
+            }
+            pre.log {
+                width: 60em;
+                min-height: 20em;
+                background-color: #f2f2f2;
+                padding: 1em;
+                font-size: 0.6em;
+            }
         </style>
     </head>
     <body>
@@ -221,7 +233,14 @@
                 v-on:close="idle"
                 v-on:ok="jobStart"
                 :job="state.jobTypes[state.creatingJobName]"
+                :field-errors="state.creatingJobFieldErrors"
             ></modal-job-input-parameters>
+            <modal-log
+                v-if="showLog"
+                v-on:close="idle"
+                :job="state.jobTypes[state.creatingJobName]"
+                :log="state.log"
+            ></modal-log>
         </div>
         <div id="modalContentSelectJobType" style="display: none;">
             <h3>Select Job type...</h3>

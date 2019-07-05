@@ -4,22 +4,41 @@ import common_pb from 'proto/common/common_js_proto/proto/common/common_pb.js';
 import common_grpc from 'proto/common/common_js_proto/proto/common/common_grpc_web_pb.js';
 
 const Remote = function() {
-    const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
-    console.log("Remote URL: " + url);
-    this.manage = new common_grpc.ManageClient(url);
+    this.url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
+    console.log("Remote URL: " + this.url);
+    this.manage = new common_grpc.ManageClient(this.url);
 }
 
-Remote.prototype.descriptions = function() {
-    let req = new common_pb.DefinitionsRequest();
+Remote.prototype._unary = function(method, req) {
     return new Promise((resolve, reject) => {
-        this.manage.definitions(req, {}, (err, response) => {
+        this.manage[method](req, {}, (err, response) => {
             if (err) {
-                reject(err.message);
+                reject(`RPC Error: ${method}: ${err.message}`);
             } else {
                 resolve(response);
             }
         });
-    })
+    });
+}
+
+Remote.prototype.definitions = async function() {
+    const req = new common_pb.DefinitionsRequest();
+    return await this._unary('definitions', req);
+}
+
+Remote.prototype.create = async function(jobName, fields) {
+    let req = new common_pb.CreateRequest();
+    req.setJobDefinitionName(jobName);
+    let args = [];
+    for (const [k, v] of fields) {
+        let arg = new common_pb.CreateRequest.Argument();
+        arg.setName(k);
+        arg.setValue(v);
+        args.push(arg);
+    }
+    req.setArgumentsList(args);
+
+    return await this._unary('create', req);
 }
 
 const State = Object.freeze({
@@ -27,6 +46,7 @@ const State = Object.freeze({
         CREATE_JOB_SELECT_TYPE: Symbol("CREATE_JOB_SELECT_TYPE"),
         CREATE_JOB_INPUT_PARAMETERS: Symbol("CREATE_JOB_INPUT_PARAMETERS"),
         CREATE_JOB_START: Symbol("CREATE_JOB_START"),
+        LOG: Symbol("LOG"),
 });
 
 const store = {
@@ -35,27 +55,100 @@ const store = {
 
         jobTypes: {},
         creatingJobName: "",
+        creatingJobFieldErrors: {},
+        log: "",
     },
 
     remote: new Remote(),
 
-    idle: function() {
+    logEntry(line) {
+        this.state.log += line;
+        this.state.log += "\n";
+    },
+
+    idle() {
         this.state.state = State.IDLE;
     },
-    jobSelect: async function() {
-        const descriptions = await this.remote.descriptions();
-        const jobs = descriptions.getJobsList();
+
+    async jobSelect() {
+        const definitions = await this.remote.definitions();
+        const jobs = definitions.getJobsList();
         for (const job of jobs) {
             this.state.jobTypes[job.getName()] = job;
         }
+
+        this.state.creatingJobName = "";
+        this.state.creatingJobFieldErrors = {};
         this.state.state = State.CREATE_JOB_SELECT_TYPE;
     },
-    jobInputParameters: async function(jobName) {
+
+    async jobInputParameters(jobName) {
         if (jobName === "") {
             return;
         }
         this.state.creatingJobName = jobName;
         this.state.state = State.CREATE_JOB_INPUT_PARAMETERS;
+    },
+
+    async jobStart(fieldValues) {
+        const job = this.state.jobTypes[this.state.creatingJobName];
+
+        let errors = new Map();
+        let fields = new Map();
+
+        // Check fields.
+        for (const argument of job.getArgumentsList()) {
+            const name = argument.getName();
+            const value = fieldValues[name] || "";
+            let hasError = false;
+            for (const validator of argument.getValidatorList()) {
+                if (validator === common_pb.ArgumentDefinition.Validator.VALIDATOR_MUST_BE_SET) {
+                    if (value === "" && argument.getType() !== common_pb.ArgumentDefinition.Type.TYPE_BOOL) {
+                        errors.set(name, "must be set");
+                        hasError = true;
+                        continue;
+                    }
+                }
+            }
+            if (hasError) {
+                continue;
+            }
+            fields.set(name, value);
+        }
+
+        if (errors.size > 0) {
+            // A validation error occured.
+            console.log("Validation errors: ", errors);
+            this.state.creatingJobFieldErrors = Object.fromEntries(errors);
+            return;
+        }
+        this.state.creatingJobFieldErrors = {};
+
+        // Start logging...
+
+        this.state.log = "";
+        this.logEntry(`Creating job "${this.state.creatingJobName}" on ${this.remote.url}`);
+        if (fields.size > 0) {
+            this.logEntry(`With arguments:`);
+            console.log("wut", fields);
+            for (const [k, v] of fields) {
+                console.log(k, v);
+                this.logEntry(`    ${k}: "${v}"`);
+            }
+        }
+        this.logEntry("");
+
+        // Create job on Scarab.
+
+        this.state.state = State.LOG;
+
+        let res = undefined;
+        try {
+            res = await this.remote.create(this.state.creatingJobName, fields);
+        } catch (err) {
+            this.logEntry(`Could not create job: ${err}`)
+            return;
+        }
     },
 };
 
@@ -104,24 +197,16 @@ Vue.component('modal-job-input-parameters', {
     },
     methods: {
         getArguments: function() {
-            let res = [];
-            
-            for (const argument of this.job.getArgumentsList()) {
-                let arg = {
+            const ad = common_pb.ArgumentDefinition;
+            return this.job.getArgumentsList().map((argument) => {
+                const validators = argument.getValidatorList();
+                return {
                     name: argument.getName(),
                     description: argument.getDescription(),
-                    checkbox: argument.getType() === common_pb.ArgumentDefinition.Type.TYPE_BOOL,
-                    mustBeSet: false,
+                    checkbox: argument.getType() === ad.Type.TYPE_BOOL,
+                    mustBeSet: validators.some((v) => v == ad.Validator.VALIDATOR_MUST_BE_SET),
                 };
-                for (const validator of argument.getValidatorList()) {
-                    if (validator == common_pb.ArgumentDefinition.Validator.VALIDATOR_MUST_BE_SET) {
-                        arg.mustBeSet = true;
-                    }
-                }
-                res.push(arg);
-            }
-
-            return res;
+            });
         }
     },
     template: `
@@ -131,7 +216,7 @@ Vue.component('modal-job-input-parameters', {
             <div class="fields">
                 <template v-for="argument in getArguments()">
                     <label :for=argument.name>
-                        {{ argument.description }}<span v-if="argument.mustBeSet" style="color: red;"> *</span>:
+                        {{ argument.description }}<span v-if="argument.mustBeSet && !argument.checkbox" style="color: red;"> *</span>:
                     </label>
                     <input
                         v-if="argument.checkbox"
@@ -144,10 +229,32 @@ Vue.component('modal-job-input-parameters', {
                         v-model=fields[argument.name]
                         :name=argument.name
                     />
+                    <div
+                        v-if="fieldErrors[argument.name] !== undefined"
+                        class="error"
+                    >{{ fieldErrors[argument.name] }}</div>
                 </template>
             </div>
             <vbutton v-on:click="$emit('ok', fields)" red :s="{ marginRight: 0, }">Create Job</vbutton>
             <vbutton v-on:click="$emit('close')">Cancel</vbutton>
+        </div>
+    </div>
+    `,
+});
+
+Vue.component('modal-log', {
+    data: () => { return {
+    }; },
+    props: {
+        "job": {type: common_pb.JobDefinition},
+        "log": {type: String, default: "..."},
+    },
+    template: `
+    <div id="modal">
+        <div id="modalContent">
+            <h3>{{ job.getDescription() }} ...</h3>
+            <pre class="log">{{ log }}</pre>
+            <vbutton v-on:click="$emit('close')">Close</vbutton>
         </div>
     </div>
     `,
@@ -162,7 +269,7 @@ const vm = new Vue({
         idle: () => store.idle(),
         jobSelect: () => store.jobSelect(),
         jobInputParameters: (jobName) => store.jobInputParameters(jobName),
-        jobStart: (fields) => console.log(fields),
+        jobStart: (fields) => store.jobStart(fields),
     },
     computed: {
         showCreateJobSelectType: function() {
@@ -170,6 +277,9 @@ const vm = new Vue({
         },
         showCreateJobInputParameters: function() {
             return this.state.state === State.CREATE_JOB_INPUT_PARAMETERS;
+        },
+        showLog: function() {
+            return this.state.state === State.LOG;
         },
     },
 });

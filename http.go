@@ -10,6 +10,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/q3k/scarab/js"
 	cpb "github.com/q3k/scarab/proto/common"
@@ -43,6 +45,10 @@ func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsReques
 	return res, nil
 }
 
+func (s *grpcManage) Create(ctx context.Context, req *cpb.CreateRequest) (*cpb.CreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "unimplemented")
+}
+
 func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.httpRoot)
@@ -52,6 +58,10 @@ func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 		if !ok {
 			http.NotFound(w, r)
 			return
+		}
+
+		if strings.HasSuffix(ruri, ".js") {
+			w.Header().Set("SourceMap", r.RequestURI+".map")
 		}
 		w.Header().Set("Content-Type", "text/javascript")
 		w.Write(data)
