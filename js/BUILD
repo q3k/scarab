@@ -29,6 +29,7 @@ go_embed_data(
     flatten = True,
 )
 
+# keep
 go_library(
     name = "go_default_library",
     srcs = [":js"],

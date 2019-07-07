@@ -7,6 +7,7 @@ go_embed_data(
     package = "templates",
 )
 
+# keep
 go_library(
     name = "go_default_library",
     srcs = [":templates"],
