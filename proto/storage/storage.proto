@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package scarab.storage;
+option go_package = "github.com/q3k/scarab/proto/storage";
+
+import "proto/common/common.proto";
+
+message RunningJob {
+        int64 id = 1;
+
+        common.JobDefinition definition = 2;
+        repeated common.Argument arguments = 3;
+}

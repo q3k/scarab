@@ -31,7 +31,7 @@ Remote.prototype.create = async function(jobName, fields) {
     req.setJobDefinitionName(jobName);
     let args = [];
     for (const [k, v] of fields) {
-        let arg = new common_pb.CreateRequest.Argument();
+        let arg = new common_pb.Argument();
         arg.setName(k);
         arg.setValue(v);
         args.push(arg);

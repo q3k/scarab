@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	cpb "github.com/q3k/scarab/proto/common"
+	spb "github.com/q3k/scarab/proto/storage"
 )
 
 type JobDefinition struct {
@@ -18,6 +19,22 @@ type JobDefinition struct {
 	Steps []StepDefinition
 }
 
+func (j *JobDefinition) Proto() *cpb.JobDefinition {
+	res := &cpb.JobDefinition{
+		Name:        j.Name,
+		Description: j.Description,
+		Arguments:   j.ArgsDescriptor,
+		Steps:       make([]*cpb.StepDefinition, len(j.Steps)),
+	}
+	for j, step := range j.Steps {
+		res.Steps[j] = &cpb.StepDefinition{
+			Name:        step.Name,
+			Description: step.Description,
+		}
+	}
+	return res
+}
+
 type StepDefinition struct {
 	Name        string
 	Description string
@@ -25,10 +42,20 @@ type StepDefinition struct {
 }
 
 type RunningJob struct {
+	id int64
+
 	definition *JobDefinition
 
-	Args  proto.Message
+	Args  []*cpb.Argument
 	State proto.Message
+}
+
+func (r *RunningJob) Proto() *spb.RunningJob {
+	return &spb.RunningJob{
+		Id:         r.id,
+		Definition: r.definition.Proto(),
+		Arguments:  r.Args,
+	}
 }
 
 type RunningStep struct {

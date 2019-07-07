@@ -28,18 +28,7 @@ func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsReques
 	}
 	i := 0
 	for _, job := range s.s.Definitions {
-		res.Jobs[i] = &cpb.JobDefinition{
-			Name:        job.Name,
-			Description: job.Description,
-			Arguments:   job.ArgsDescriptor,
-			Steps:       make([]*cpb.StepDefinition, len(job.Steps)),
-		}
-		for j, step := range job.Steps {
-			res.Jobs[i].Steps[j] = &cpb.StepDefinition{
-				Name:        step.Name,
-				Description: step.Description,
-			}
-		}
+		res.Jobs[i] = job.Proto()
 		i += 1
 	}
 	return res, nil
