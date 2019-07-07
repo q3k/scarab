@@ -60,7 +60,7 @@ func (l *levelDBStorage) UpdateBatch(jobs []*RunningJob) error {
 			return fmt.Errorf("cannot batch store new job %v", j)
 		}
 
-		p := j.Proto()
+		p := j.ProtoStorage()
 		b, err := proto.Marshal(p)
 		if err != nil {
 			return fmt.Errorf("could not marshal job %v: %v", j, err)
@@ -121,7 +121,7 @@ func (l *levelDBStorage) Load() ([]*RunningJob, error) {
 			return nil, fmt.Errorf("could not unmarshal job: %v", err)
 		}
 
-		res = append(res, UnmarshalRunningJob(&job))
+		res = append(res, UnmarshalRunningJobStorage(&job))
 	}
 
 	return res, nil

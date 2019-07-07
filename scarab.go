@@ -68,7 +68,7 @@ type RunningJob struct {
 	State     proto.Message
 }
 
-func (r *RunningJob) Proto() *spb.RunningJob {
+func (r *RunningJob) ProtoStorage() *spb.RunningJob {
 	return &spb.RunningJob{
 		Id:         r.id,
 		Definition: r.definition.Proto(),
@@ -76,7 +76,15 @@ func (r *RunningJob) Proto() *spb.RunningJob {
 	}
 }
 
-func UnmarshalRunningJob(j *spb.RunningJob) *RunningJob {
+func (r *RunningJob) Proto() *cpb.RunningJob {
+	return &cpb.RunningJob{
+		Id:         r.id,
+		Definition: r.definition.Proto(),
+		Arguments:  r.Arguments,
+	}
+}
+
+func UnmarshalRunningJobStorage(j *spb.RunningJob) *RunningJob {
 	return &RunningJob{
 		id:         j.Id,
 		definition: UnmarshalJobDefinition(j.Definition),
@@ -116,22 +124,6 @@ func NewService(definitions []*JobDefinition, storage Storage) (*Service, error)
 	}
 
 	return s, nil
-}
-
-func (s *Service) RunningJobs() []*RunningJob {
-	s.jobsMu.RLock()
-	defer s.jobsMu.RUnlock()
-
-	res := make([]*RunningJob, len(s.jobs))
-	for i, j := range s.jobs {
-		res[i] = &RunningJob{
-			definition: j.definition,
-			Arguments:  j.Arguments,
-			State:      j.State,
-		}
-	}
-
-	return res
 }
 
 func (s *Service) Save() error {

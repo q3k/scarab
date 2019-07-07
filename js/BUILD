@@ -1,22 +1,19 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@build_bazel_rules_nodejs//:defs.bzl", "rollup_bundle")
 
-#load("@build_stack_rules_proto//:compile.bzl", "proto_compile")
 load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
-
-#closure_grpc_web_library(
-#    name = "common_grpc_web_proto",
-#    deps = ["//proto/common:common_proto"],
-#)
 
 rollup_bundle(
     name = "bundle",
     entry_point = "app.js",
     srcs = [
+        "remote.js",
+        "components.js",
         "//proto/common:common_js_proto",
     ],
     deps = [
         "@npm//vue",
+        "@npm//vue-router",
         "@npm//grpc-web",
         "@npm//google-protobuf",
     ],
@@ -24,7 +21,7 @@ rollup_bundle(
 
 go_embed_data(
     name = "js",
-    srcs = [":bundle"],
+    srcs = [":bundle.es2015.js"],
     package = "js",
     flatten = True,
 )

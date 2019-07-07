@@ -1,47 +1,14 @@
 import Vue from 'vue/dist/vue.esm.browser.js';
+import VueRouter from 'vue-router/dist/vue-router.esm.browser.js';
 
 import common_pb from 'proto/common/common_js_proto/proto/common/common_pb.js';
-import common_grpc from 'proto/common/common_js_proto/proto/common/common_grpc_web_pb.js';
 
-const Remote = function() {
-    this.url = `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
-    console.log("Remote URL: " + this.url);
-    this.manage = new common_grpc.ManageClient(this.url);
-}
+import { Remote } from './remote.js';
+import { ViewIndex, ViewJobDefinition } from './components.js';
 
-Remote.prototype._unary = function(method, req) {
-    return new Promise((resolve, reject) => {
-        this.manage[method](req, {}, (err, response) => {
-            if (err) {
-                reject(`RPC Error: ${method}: ${err.message}`);
-            } else {
-                resolve(response);
-            }
-        });
-    });
-}
+Vue.use(VueRouter);
 
-Remote.prototype.definitions = async function() {
-    const req = new common_pb.DefinitionsRequest();
-    return await this._unary('definitions', req);
-}
-
-Remote.prototype.create = async function(jobName, fields) {
-    let req = new common_pb.CreateRequest();
-    req.setJobDefinitionName(jobName);
-    let args = [];
-    for (const [k, v] of fields) {
-        let arg = new common_pb.Argument();
-        arg.setName(k);
-        arg.setValue(v);
-        args.push(arg);
-    }
-    req.setArgumentsList(args);
-
-    return await this._unary('create', req);
-}
-
-const State = Object.freeze({
+const ModalState = Object.freeze({
         IDLE: Symbol("IDLE"),
         CREATE_JOB_SELECT_TYPE: Symbol("CREATE_JOB_SELECT_TYPE"),
         CREATE_JOB_INPUT_PARAMETERS: Symbol("CREATE_JOB_INPUT_PARAMETERS"),
@@ -51,12 +18,14 @@ const State = Object.freeze({
 
 const store = {
     state: {
-        state: State.IDLE,
+        modalState: ModalState.IDLE,
+        log: "",
 
         jobTypes: {},
         creatingJobName: "",
         creatingJobFieldErrors: {},
-        log: "",
+
+        statistics: [],
     },
 
     remote: new Remote(),
@@ -66,8 +35,28 @@ const store = {
         this.state.log += "\n";
     },
 
+    async tick() {
+        const res = await this.remote.state();
+        const statistics = res.getPerDefinitionStatisticsList();
+        this.state.statistics = statistics.map((s) => {
+            return {
+                name: s.getDefinitionName(),
+                description: s.getDefinitionDescription(),
+                present: s.getJobsPresent(),
+            };
+        }).sort((a, b) => {
+            if (a.name < b.name) {
+                return -1;
+            }
+            if (a.name > b.name) {
+                return 1;
+            }
+            return 0;
+        });
+    },
+
     idle() {
-        this.state.state = State.IDLE;
+        this.state.modalState = ModalState.IDLE;
     },
 
     async jobSelect() {
@@ -79,7 +68,7 @@ const store = {
 
         this.state.creatingJobName = "";
         this.state.creatingJobFieldErrors = {};
-        this.state.state = State.CREATE_JOB_SELECT_TYPE;
+        this.state.modalState = ModalState.CREATE_JOB_SELECT_TYPE;
     },
 
     async jobInputParameters(jobName) {
@@ -87,7 +76,7 @@ const store = {
             return;
         }
         this.state.creatingJobName = jobName;
-        this.state.state = State.CREATE_JOB_INPUT_PARAMETERS;
+        this.state.modalState = ModalState.CREATE_JOB_INPUT_PARAMETERS;
     },
 
     async jobStart(fieldValues) {
@@ -134,7 +123,6 @@ const store = {
         this.logEntry(`Creating job "${this.state.creatingJobName}" on ${this.remote.url}`);
         if (fields.size > 0) {
             this.logEntry(`With arguments:`);
-            console.log("wut", fields);
             for (const [k, v] of fields) {
                 console.log(k, v);
                 this.logEntry(`    ${k}: "${v}"`);
@@ -144,7 +132,7 @@ const store = {
 
         // Create job on Scarab.
 
-        this.state.state = State.LOG;
+        this.state.modalState = ModalState.LOG;
 
         let res = undefined;
         try {
@@ -158,113 +146,12 @@ const store = {
     },
 };
 
-Vue.component('vbutton', {
-    data: () => {
-        return { }
-    },
-    props: {
-        red: { type: Boolean, default: false },
-        s: { type: Object, default: function() { return {} } },
-    },
-    template: `
-        <a href="#" v-bind:class="{ button: true, red: red}" v-bind:style=s v-on:click="$emit('click')"><slot></slot></a>
-    `,
-});
-
-Vue.component('modal-job-create', {
-    data: () => { return {
-        'selected': "",
-    }; },
-    props: {
-        "jobTypes": {type: Object, default: {}},
-    },
-    template: `
-    <div id="modal">
-        <div id="modalContent">
-            <h3>Select Job type...</h3>
-            <select id="select" v-model="selected">
-                <option disabled value="">Select...</option>
-                <option v-for="(job, name) in jobTypes" :value="name">{{ job.getDescription() }}</option>
-            </select>
-            <vbutton v-on:click="$emit('ok', selected)" red :s="{ marginRight: 0, }">OK</vbutton>
-            <vbutton v-on:click="$emit('close')">Cancel</vbutton>
-        </div>
-    </div>
-    `,
-});
-
-Vue.component('modal-job-input-parameters', {
-    data: () => { return {
-        fields: {},
-    }; },
-    props: {
-        "job": {type: common_pb.JobDefinition},
-        "fieldErrors": {type: Object, default: () => { return {}; }},
-    },
-    methods: {
-        getArguments: function() {
-            const ad = common_pb.ArgumentDefinition;
-            return this.job.getArgumentsList().map((argument) => {
-                const validators = argument.getValidatorList();
-                return {
-                    name: argument.getName(),
-                    description: argument.getDescription(),
-                    checkbox: argument.getType() === ad.Type.TYPE_BOOL,
-                    mustBeSet: validators.some((v) => v == ad.Validator.VALIDATOR_MUST_BE_SET),
-                };
-            });
-        }
-    },
-    template: `
-    <div id="modal">
-        <div id="modalContent">
-            <h3>{{ job.getDescription() }} ...</h3>
-            <div class="fields">
-                <template v-for="argument in getArguments()">
-                    <label :for=argument.name>
-                        {{ argument.description }}<span v-if="argument.mustBeSet && !argument.checkbox" style="color: red;"> *</span>:
-                    </label>
-                    <input
-                        v-if="argument.checkbox"
-                        v-model=fields[argument.name]
-                        type="checkbox"
-                        :name=argument.name
-                    />
-                    <input
-                        v-else
-                        v-model=fields[argument.name]
-                        :name=argument.name
-                    />
-                    <div
-                        v-if="fieldErrors[argument.name] !== undefined"
-                        class="error"
-                    >{{ fieldErrors[argument.name] }}</div>
-                </template>
-            </div>
-            <vbutton v-on:click="$emit('ok', fields)" red :s="{ marginRight: 0, }">Create Job</vbutton>
-            <vbutton v-on:click="$emit('close')">Cancel</vbutton>
-        </div>
-    </div>
-    `,
-});
-
-Vue.component('modal-log', {
-    data: () => { return {
-    }; },
-    props: {
-        "job": {type: common_pb.JobDefinition},
-        "log": {type: String, default: "..."},
-    },
-    template: `
-    <div id="modal">
-        <div id="modalContent">
-            <h3>{{ job.getDescription() }} ...</h3>
-            <pre class="log">{{ log }}</pre>
-            <vbutton v-on:click="$emit('close')">Close</vbutton>
-        </div>
-    </div>
-    `,
-});
+const router = new VueRouter({
+    routes: [
+        { path: "/", component: ViewIndex },
+        { path: "/job/definition/:name", component: ViewJobDefinition },
+    ],
+})
 
 const vm = new Vue({
     el: '#app',
@@ -279,13 +166,20 @@ const vm = new Vue({
     },
     computed: {
         showCreateJobSelectType: function() {
-            return this.state.state === State.CREATE_JOB_SELECT_TYPE;
+            return this.state.modalState === ModalState.CREATE_JOB_SELECT_TYPE;
         },
         showCreateJobInputParameters: function() {
-            return this.state.state === State.CREATE_JOB_INPUT_PARAMETERS;
+            return this.state.modalState === ModalState.CREATE_JOB_INPUT_PARAMETERS;
         },
         showLog: function() {
-            return this.state.state === State.LOG;
+            return this.state.modalState === ModalState.LOG;
         },
     },
+    mounted: function() {
+        store.tick();
+        setInterval(() => {
+            store.tick();
+        }, 5000);
+    },
+    router: router,
 });

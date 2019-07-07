@@ -200,8 +200,11 @@
                 </div>
                 <div id="split">
                     <div id="sidebar">
-                        <div class="row">
-                                <vbutton red v-on:click="jobSelect">Create Job</vbutton>
+                        <job-definition-list
+                            v-on:create="jobSelect"
+                            :statistics="state.statistics"
+                        >
+                        <div class="row" id="jobDefinitionList">
                                 <ul>
                                         {{ range $key, $value := .Definitions }}
                                         {{ if eq $.RenderSelectedJobType $key }}
@@ -212,10 +215,13 @@
                                         {{ end }}
                                 </ul>
                         </div>
+                        </job-definition-list>
                     </div>
                     <div id="main">
+                        <router-view>
                         {{ block "main" . }}
                         {{ end }}
+                        </router-view>
                     </div>
                 </div>
                 <div id="footer">
@@ -259,6 +265,6 @@
             <a href="#" class="button" id="modalCancel">Cancel</a>
         </div>
 
-        <script src="/js/bundle.min.js"></script>
+        <script src="/js/bundle.es2015.js"></script>
     </body>
 </html>

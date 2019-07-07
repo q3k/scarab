@@ -22,6 +22,32 @@ type grpcManage struct {
 	s *Service
 }
 
+func (s *grpcManage) State(ctx context.Context, req *cpb.StateRequest) (*cpb.StateResponse, error) {
+	res := &cpb.StateResponse{
+		PerDefinitionStatistics: make([]*cpb.StateResponse_JobStatistics, len(s.s.Definitions)),
+	}
+
+	s.s.jobsMu.RLock()
+
+	presentCount := make(map[string]int64)
+	for _, job := range s.s.jobs {
+		presentCount[job.definition.Name] += 1
+	}
+	s.s.jobsMu.RUnlock()
+
+	i := 0
+	for _, def := range s.s.Definitions {
+		res.PerDefinitionStatistics[i] = &cpb.StateResponse_JobStatistics{
+			DefinitionName:        def.Name,
+			DefinitionDescription: def.Description,
+			JobsPresent:           presentCount[def.Name],
+		}
+		i += 1
+	}
+
+	return res, nil
+}
+
 func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsRequest) (*cpb.DefinitionsResponse, error) {
 	res := &cpb.DefinitionsResponse{
 		Jobs: make([]*cpb.JobDefinition, len(s.s.Definitions)),
@@ -31,6 +57,20 @@ func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsReques
 		res.Jobs[i] = job.Proto()
 		i += 1
 	}
+	return res, nil
+}
+
+func (s *grpcManage) RunningJobs(ctx context.Context, req *cpb.RunningJobsRequest) (*cpb.RunningJobsResponse, error) {
+	s.s.jobsMu.RLock()
+	defer s.s.jobsMu.RUnlock()
+
+	res := &cpb.RunningJobsResponse{
+		Jobs: make([]*cpb.RunningJob, len(s.s.jobs)),
+	}
+	for i, j := range s.s.jobs {
+		res.Jobs[i] = j.Proto()
+	}
+
 	return res, nil
 }
 
@@ -117,7 +157,7 @@ func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {
 			return
 		}
 
-		if strings.HasSuffix(ruri, ".js") {
+		if strings.HasSuffix(ruri, ".min.js") {
 			w.Header().Set("SourceMap", r.RequestURI+".map")
 		}
 		w.Header().Set("Content-Type", "text/javascript")
