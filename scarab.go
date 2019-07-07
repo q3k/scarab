@@ -96,13 +96,17 @@ type Service struct {
 	storage     Storage
 }
 
-func NewService(definitions []*JobDefinition, storage Storage) *Service {
+func NewService(definitions []*JobDefinition, storage Storage) (*Service, error) {
 	// Create scarab structures.
-	// TODO(q3k): Restore state.
+
+	r, err := storage.Load()
+	if err != nil {
+		return nil, err
+	}
 
 	s := &Service{
 		Definitions: make(map[string]*JobDefinition),
-		jobs:        []*RunningJob{},
+		jobs:        r,
 		storage:     storage,
 	}
 
@@ -111,12 +115,12 @@ func NewService(definitions []*JobDefinition, storage Storage) *Service {
 		s.Definitions[def.Name] = def
 	}
 
-	return s
+	return s, nil
 }
 
 func (s *Service) RunningJobs() []*RunningJob {
-	s.jobsMu.Lock()
-	defer s.jobsMu.Unlock()
+	s.jobsMu.RLock()
+	defer s.jobsMu.RUnlock()
 
 	res := make([]*RunningJob, len(s.jobs))
 	for i, j := range s.jobs {

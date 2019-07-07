@@ -35,7 +35,75 @@ func (s *grpcManage) Definitions(ctx context.Context, req *cpb.DefinitionsReques
 }
 
 func (s *grpcManage) Create(ctx context.Context, req *cpb.CreateRequest) (*cpb.CreateResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "unimplemented")
+	if req.JobDefinitionName == "" {
+		return nil, status.Error(codes.InvalidArgument, "job definition name must be given")
+	}
+
+	definition, ok := s.s.Definitions[req.JobDefinitionName]
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "unknown job definition name %q", req.JobDefinitionName)
+	}
+
+	definitionArgs := make(map[string]*cpb.ArgumentDefinition)
+	for _, def := range definition.Arguments {
+		definitionArgs[def.Name] = def
+	}
+
+	for i, arg := range req.Arguments {
+		if arg.Name == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "argument %d must have a name", i)
+		}
+
+		desc, ok := definitionArgs[arg.Name]
+		if !ok {
+			return nil, status.Errorf(codes.InvalidArgument, "argument %q unknown", arg.Name)
+		}
+
+		for _, validator := range desc.Validator {
+			switch validator {
+			case cpb.ArgumentDefinition_VALIDATOR_MUST_BE_SET:
+				if arg.Value == "" {
+					return nil, status.Errorf(codes.InvalidArgument, "argument %q must be set", arg.Name)
+				}
+			}
+		}
+
+		switch {
+		case desc.Type == cpb.ArgumentDefinition_TYPE_ONE_LINE_STRING:
+			break
+		case desc.Type == cpb.ArgumentDefinition_TYPE_BOOL && arg.Value != "":
+			l := strings.ToLower(arg.Value)
+			if l == "false" || l == "f" || l == "0" {
+				arg.Value = "false"
+			} else if l == "true" || l == "t" || l == "1" {
+				arg.Value = "true"
+			} else {
+				return nil, status.Errorf(codes.InvalidArgument, "argument %q (%q) cannot be parsed as bool", arg.Name, arg.Value)
+			}
+			break
+		default:
+			return nil, status.Errorf(codes.FailedPrecondition, "argument %q has unknown type %q in definition", arg.Name, desc.Type.String())
+		}
+	}
+
+	job := &RunningJob{
+		definition: definition,
+		Arguments:  req.Arguments,
+	}
+
+	err := s.s.storage.Create(job)
+	if err != nil {
+		glog.Errorf("storage.CreateJob(%+v): %v", job, err)
+		return nil, status.Error(codes.Unavailable, "could not save new job")
+	}
+
+	s.s.jobsMu.Lock()
+	s.s.jobs = append(s.s.jobs, job)
+	s.s.jobsMu.Unlock()
+
+	return &cpb.CreateResponse{
+		JobId: job.id,
+	}, nil
 }
 
 func (s *Service) RunHTTPServer(ctx context.Context, bind string) error {

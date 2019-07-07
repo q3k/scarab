@@ -99,14 +99,18 @@ const store = {
         // Check fields.
         for (const argument of job.getArgumentsList()) {
             const name = argument.getName();
-            const value = fieldValues[name] || "";
+            let value = fieldValues[name] || "";
             let hasError = false;
             for (const validator of argument.getValidatorList()) {
                 if (validator === common_pb.ArgumentDefinition.Validator.VALIDATOR_MUST_BE_SET) {
-                    if (value === "" && argument.getType() !== common_pb.ArgumentDefinition.Type.TYPE_BOOL) {
-                        errors.set(name, "must be set");
-                        hasError = true;
-                        continue;
+                    if (value === "") {
+                        if (argument.getType() !== common_pb.ArgumentDefinition.Type.TYPE_BOOL) {
+                            errors.set(name, "must be set");
+                            hasError = true;
+                            continue;
+                        } else {
+                            value = "false";
+                        }
                     }
                 }
             }
@@ -145,6 +149,8 @@ const store = {
         let res = undefined;
         try {
             res = await this.remote.create(this.state.creatingJobName, fields);
+            let job_id = res.getJobId();
+            this.logEntry(`Created new job, ID ${job_id}`);
         } catch (err) {
             this.logEntry(`Could not create job: ${err}`)
             return;

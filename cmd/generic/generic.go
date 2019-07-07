@@ -20,6 +20,7 @@ import (
 
 type flags struct {
 	configuration string
+	databasePath  string
 	httpBind      string
 }
 
@@ -60,10 +61,12 @@ func main() {
 	f := flags{
 		configuration: "configuration.proto.text",
 		httpBind:      "127.0.0.1:2137",
+		databasePath:  "scarab.db",
 	}
 
 	flag.StringVar(&f.configuration, "configuration", f.configuration, "Location of Scarab instance configuration. If ends in .text, will be unmarshaled as protobuf text, otherwise as binary protobuf.")
 	flag.StringVar(&f.httpBind, "http_bind", f.httpBind, "Address to bind HTTP server to. If empty, no HTTP server will be started.")
+	flag.StringVar(&f.databasePath, "db_path", f.databasePath, "Local path of storage database.")
 	flag.Parse()
 
 	config := gpb.Configuration{}
@@ -90,18 +93,21 @@ func main() {
 		}
 
 		definitions[i] = &scarab.JobDefinition{
-			Name:           job.Name,
-			Description:    job.Description,
-			ArgsDescriptor: job.Arguments,
+			Name:        job.Name,
+			Description: job.Description,
+			Arguments:   job.Arguments,
 		}
 	}
 
-	storage, err := scarab.NewLevelDBStorage("scarab.db")
+	storage, err := scarab.NewLevelDBStorage(f.databasePath)
 	if err != nil {
 		glog.Exitf("Storage failed: %v", err)
 	}
 
-	s := scarab.NewService(definitions, storage)
+	s, err := scarab.NewService(definitions, storage)
+	if err != nil {
+		glog.Exitf("Creating service failed failed: %v", err)
+	}
 
 	glog.Infof("Service loaded!")
 
