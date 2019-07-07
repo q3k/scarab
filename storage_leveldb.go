@@ -107,3 +107,22 @@ func (l *levelDBStorage) Create(job *RunningJob) error {
 	job.id = id
 	return l.UpdateBatch([]*RunningJob{job})
 }
+
+func (l *levelDBStorage) Load() ([]*RunningJob, error) {
+	k := keyRunningJob{}
+	iter := l.db.NewIterator(leveldb_util.BytesPrefix(k.Get()), nil)
+
+	res := []*RunningJob{}
+	for iter.Next() {
+		b := iter.Value()
+		job := spb.RunningJob{}
+		err := proto.Unmarshal(b, &job)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal job: %v", err)
+		}
+
+		res = append(res, UnmarshalRunningJob(&job))
+	}
+
+	return res, nil
+}

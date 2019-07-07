@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # gazelle:prefix github.com/q3k/scarab
@@ -16,10 +16,10 @@ go_library(
     importpath = "github.com/q3k/scarab",
     visibility = ["//visibility:public"],
     deps = [
+        "//js:go_default_library",
         "//proto/common:go_default_library",
         "//proto/storage:go_default_library",
         "//templates:go_default_library",
-        "//js:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_improbable_eng_grpc_web//go/grpcweb:go_default_library",
@@ -56,4 +56,14 @@ nodejs_binary(
     entry_point = "@npm//:node_modules/rollup/bin/rollup",
     install_source_map_support = False,
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["storage_leveldb_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//proto/common:go_default_library",
+        "@com_github_go_test_deep//:go_default_library",
+    ],
 )

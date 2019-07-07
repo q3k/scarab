@@ -1,1 +1,2 @@
 common --experimental_allow_incremental_repository_updates
+test --test_output=errors

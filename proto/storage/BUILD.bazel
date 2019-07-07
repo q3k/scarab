@@ -12,6 +12,7 @@ go_proto_library(
     name = "storage_go_proto",
     importpath = "github.com/q3k/scarab/proto/storage",
     proto = ":storage_proto",
+    visibility = ["//visibility:public"],
     deps = ["//proto/common:go_default_library"],
 )
 

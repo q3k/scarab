@@ -230,3 +230,9 @@ go_repository(
     commit = "33ffc0734c60052d8b609f1e2d8ebbadc6cd80d8",
     importpath = "github.com/rs/cors",
 )
+
+go_repository(
+    name = "com_github_go_test_deep",
+    commit = "042da051cf3189d80f667339b822c7effac29cd6",
+    importpath = "github.com/go-test/deep",
+)

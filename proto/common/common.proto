@@ -31,6 +31,9 @@ message StepDefinition {
                 // To run, execute shell script.
                 bytes shell_script = 3;
         }
+
+        // Steps that must run before this one.
+        repeated string depends_steps = 4;
 }
 
 message ArgumentDefinition {

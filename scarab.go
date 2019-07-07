@@ -14,7 +14,7 @@ type JobDefinition struct {
 	Name        string
 	Description string
 
-	ArgsDescriptor []*cpb.ArgumentDefinition
+	Arguments []*cpb.ArgumentDefinition
 
 	Steps []StepDefinition
 }
@@ -23,22 +23,40 @@ func (j *JobDefinition) Proto() *cpb.JobDefinition {
 	res := &cpb.JobDefinition{
 		Name:        j.Name,
 		Description: j.Description,
-		Arguments:   j.ArgsDescriptor,
+		Arguments:   j.Arguments,
 		Steps:       make([]*cpb.StepDefinition, len(j.Steps)),
 	}
 	for j, step := range j.Steps {
 		res.Steps[j] = &cpb.StepDefinition{
-			Name:        step.Name,
-			Description: step.Description,
+			Name:         step.Name,
+			Description:  step.Description,
+			DependsSteps: step.DependsSteps,
+		}
+	}
+	return res
+}
+
+func UnmarshalJobDefinition(j *cpb.JobDefinition) *JobDefinition {
+	res := &JobDefinition{
+		Name:        j.Name,
+		Description: j.Description,
+		Arguments:   j.Arguments,
+		Steps:       make([]StepDefinition, len(j.Steps)),
+	}
+	for i, step := range j.Steps {
+		res.Steps[i] = StepDefinition{
+			Name:         step.Name,
+			Description:  step.Description,
+			DependsSteps: step.DependsSteps,
 		}
 	}
 	return res
 }
 
 type StepDefinition struct {
-	Name        string
-	Description string
-	DependsStep string
+	Name         string
+	Description  string
+	DependsSteps []string
 }
 
 type RunningJob struct {
@@ -46,15 +64,23 @@ type RunningJob struct {
 
 	definition *JobDefinition
 
-	Args  []*cpb.Argument
-	State proto.Message
+	Arguments []*cpb.Argument
+	State     proto.Message
 }
 
 func (r *RunningJob) Proto() *spb.RunningJob {
 	return &spb.RunningJob{
 		Id:         r.id,
 		Definition: r.definition.Proto(),
-		Arguments:  r.Args,
+		Arguments:  r.Arguments,
+	}
+}
+
+func UnmarshalRunningJob(j *spb.RunningJob) *RunningJob {
+	return &RunningJob{
+		id:         j.Id,
+		definition: UnmarshalJobDefinition(j.Definition),
+		Arguments:  j.Arguments,
 	}
 }
 
@@ -96,7 +122,7 @@ func (s *Service) RunningJobs() []*RunningJob {
 	for i, j := range s.jobs {
 		res[i] = &RunningJob{
 			definition: j.definition,
-			Args:       j.Args,
+			Arguments:  j.Arguments,
 			State:      j.State,
 		}
 	}
