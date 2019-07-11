@@ -112,14 +112,14 @@ Vue.component('modal-log', {
 
 Vue.component('job-definition-list', {
     props: {
-        statistics: {type: Array, },
+        statistics: {type: Object, },
     },
     template: `
     <div class="row">
         <vbutton red v-on:click="$emit('create')" :s="{ marginBottom: '10px', }">Create Job</vbutton>
         <ul>
-            <li v-for="stat in statistics">
-                <router-link :to="'/job/definition/' + stat.name" class="job" active-class="selected">{{ stat.description }}</router-link>
+            <li v-for="(stat, name) in statistics">
+                <router-link :to="'/job/definition/' + name" class="job" active-class="selected">{{ stat.description }}</router-link>
             </li>
         </ul>
     </div>
@@ -138,9 +138,30 @@ export const ViewIndex = {
 };
 
 export const ViewJobDefinition = {
+    props: {
+        state: {type: Object, },
+    },
     template: `
-        <div class="row">
-            <h3>{{ $route.params.name }}</h3>
+        <div>
+            <div v-for="job in state.jobsPerDefinition[$route.params.name]" class="row">
+                <h3>{{ job.getDefinition().getDescription() }} <small>(#{{ job.getId() }})</small></h3>
+                <p>
+                    Started with arguments:
+                </p>
+                <ul>
+                    <li v-for="arg in job.getArgumentsList()"><b>{{ arg.getName() }}</b>: {{ arg.getValue() }}</li>
+                </li>
+            </div>
+            <div v-if="(state.jobsPerDefinition[$route.params.name] || []).length === 0" class="row">
+                <h3>No active jobs of type '{{ $route.params.name }}'.</h3>
+                <p>
+                    Select a job type from the left.
+                </p>
+            </div>
         </div>
-    `
+    `,
+    async beforeRouteEnter(to, from, next) {
+        await store.fetchJobDefinitionData(to.params.name);
+        next();
+    },
 };

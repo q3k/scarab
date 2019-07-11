@@ -218,7 +218,9 @@
                         </job-definition-list>
                     </div>
                     <div id="main">
-                        <router-view>
+                        <router-view
+                            :state="state"
+                        >
                         {{ block "main" . }}
                         {{ end }}
                         </router-view>
@@ -232,19 +234,19 @@
                 v-if="showCreateJobSelectType"
                 v-on:close="idle"
                 v-on:ok="jobInputParameters"
-                :job-types="state.jobTypes"
+                :job-types="state.creatingJobTypes"
             ></modal-job-create>
             <modal-job-input-parameters
                 v-if="showCreateJobInputParameters"
                 v-on:close="idle"
                 v-on:ok="jobStart"
-                :job="state.jobTypes[state.creatingJobName]"
+                :job="state.creatingJobTypes[state.creatingJobName]"
                 :field-errors="state.creatingJobFieldErrors"
             ></modal-job-input-parameters>
             <modal-log
                 v-if="showLog"
                 v-on:close="idle"
-                :job="state.jobTypes[state.creatingJobName]"
+                :job="state.creatingJobTypes[state.creatingJobName]"
                 :log="state.log"
             ></modal-log>
         </div>

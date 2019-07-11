@@ -29,6 +29,11 @@ Remote.prototype.definitions = async function() {
     return await this._unary('definitions', req);
 }
 
+Remote.prototype.runningJobs = async function() {
+    const req = new common_pb.DefinitionsRequest();
+    return await this._unary('runningJobs', req);
+}
+
 Remote.prototype.create = async function(jobName, fields) {
     let req = new common_pb.CreateRequest();
     req.setJobDefinitionName(jobName);

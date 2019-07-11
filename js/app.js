@@ -17,15 +17,20 @@ const ModalState = Object.freeze({
 });
 
 const store = {
+    // Passed to components.
     state: {
         modalState: ModalState.IDLE,
         log: "",
 
-        jobTypes: {},
+        creatingJobTypes: {},
         creatingJobName: "",
         creatingJobFieldErrors: {},
 
-        statistics: [],
+        fetch: {
+            jobDefinition: null,
+        },
+        statistics: {},
+        jobsPerDefinition: {},
     },
 
     remote: new Remote(),
@@ -35,24 +40,52 @@ const store = {
         this.state.log += "\n";
     },
 
-    async tick() {
-        const res = await this.remote.state();
-        const statistics = res.getPerDefinitionStatisticsList();
-        this.state.statistics = statistics.map((s) => {
-            return {
-                name: s.getDefinitionName(),
-                description: s.getDefinitionDescription(),
-                present: s.getJobsPresent(),
-            };
-        }).sort((a, b) => {
-            if (a.name < b.name) {
-                return -1;
-            }
-            if (a.name > b.name) {
-                return 1;
-            }
-            return 0;
-        });
+    async fetch() {
+        await Promise.all([
+            // fetch statistics
+            (async () => {
+                const res = await this.remote.state();
+                const statistics = res.getPerDefinitionStatisticsList();
+                this.state.statistics = Object.fromEntries(statistics.map((s) => {
+                    return [
+                        s.getDefinitionName(),
+                        {
+                            name: s.getDefinitionName(),
+                            description: s.getDefinitionDescription(),
+                            present: s.getJobsPresent(),
+                        }
+                    ];
+                }).sort((a, b) => {
+                    if (a[0] < b[0]) {
+                        return -1;
+                    }
+                    if (a[0] > b[0]) {
+                        return 1;
+                    }
+                    return 0;
+                }));
+            })(),
+            // fetch anything requested in fetch options
+            (async () => {
+                const defs = this.state.fetch.jobDefinition;
+                if (defs === null) {
+                    return;
+                }
+
+                const res = await this.remote.runningJobs();
+                let jpd = {};
+                for (const job of res.getJobsList()) {
+                    const defName = job.getDefinition().getName();
+                    if (jpd[defName] === undefined) {
+                        jpd[defName] = [];
+                    }
+
+                    jpd[defName].push(job);
+                }
+
+                this.state.jobsPerDefinition = jpd;
+            })(),
+        ]);
     },
 
     idle() {
@@ -63,7 +96,7 @@ const store = {
         const definitions = await this.remote.definitions();
         const jobs = definitions.getJobsList();
         for (const job of jobs) {
-            this.state.jobTypes[job.getName()] = job;
+            this.state.creatingJobTypes[job.getName()] = job;
         }
 
         this.state.creatingJobName = "";
@@ -80,7 +113,7 @@ const store = {
     },
 
     async jobStart(fieldValues) {
-        const job = this.state.jobTypes[this.state.creatingJobName];
+        const job = this.state.creatingJobTypes[this.state.creatingJobName];
 
         let errors = new Map();
         let fields = new Map();
@@ -144,7 +177,14 @@ const store = {
             return;
         }
     },
+
+    async fetchJobDefinitionData(name) {
+        this.state.fetch.jobDefinition = name;
+        await this.fetch();
+    },
 };
+
+window.store = store;
 
 const router = new VueRouter({
     routes: [
@@ -154,7 +194,6 @@ const router = new VueRouter({
 })
 
 const vm = new Vue({
-    el: '#app',
     data: {
         state: store.state,
     },
@@ -176,10 +215,17 @@ const vm = new Vue({
         },
     },
     mounted: function() {
-        store.tick();
         setInterval(() => {
-            store.tick();
+            store.fetch();
         }, 5000);
     },
     router: router,
 });
+
+(async () => {
+    // Prefetch store data to prevent excessive flickering...
+    await store.fetch();
+    // Mount app.
+    console.log("Prefetch done, starting app...");
+    vm.$mount("#app");
+})();
