@@ -12,7 +12,7 @@
     "@types/vue": "^2.0.0",
     "google-protobuf": "^3.9.0-rc.1",
     "is-builtin-module": "^3.0.0",
-    "postcss": "^7.0.17",
+    "postcss": "^7.0.36",
     "rollup": "^1.16.4",
     "rollup-plugin-alias": "^1.5.2",
     "rollup-plugin-amd": "^4.0.0",
